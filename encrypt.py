@@ -1,6 +1,7 @@
 import pickle
 import argparse
 import sys
+from collections import Counter
 
 alphabets = [(ord('a'), ord('z')), (ord('а'), ord('я')), (ord(' '), ord('@')), (ord('['), ord('`')),
              (ord('{'), ord('~'))]
@@ -33,6 +34,8 @@ def _same_alphabets(alpha1, alpha2):
 
 
 def _shift_ord(_chr, sh, _alpha=None):
+    if sh == 0:
+        return _chr
     if _alpha is None:
         _alpha = _get_alpha(_chr)
     numb = ord(_chr)
@@ -86,19 +89,22 @@ def vigenere_decode(file, key):
     return _vigenere(file, key, -1)
 
 
+def _first_file_letters(file, _sh=0, _max_amount=40000):
+    _processed = 0
+    for line in file:
+        for _ch in line:
+            sh_ch = _shift_ord(_ch, _sh)
+            if is_letter(sh_ch):
+                yield sh_ch
+                _processed += 1
+        if _processed > _max_amount:
+            break
+
+
 def _frequencies(file):
     _letters = dict()
-    data_amount = 0
-    for line in file:
-        for _chr in line.strip():
-            _chr = _chr.lower()
-            if is_letter(_chr):
-                if _chr not in _letters:
-                    _letters.update({_chr: 0})
-                _letters[_chr] += 1
-                data_amount += 1
-        if data_amount > 40000:
-            break
+    _letters = Counter(_ch for _ch in _first_file_letters(file))
+    data_amount = sum(_letters.values())
     for ch in _letters:
         _letters[ch] /= data_amount
     return _letters
@@ -126,18 +132,8 @@ def _freq_diff(freqs1, freqs2):
 
 
 def _caesar_count_freq(file, key):
-    ans = dict()
-    let_amount = 0
-    for line in file:
-        for ch in line.strip():
-            new_ch = _shift_ord(ch, key)
-            if _get_alpha(new_ch):
-                if new_ch not in ans:
-                    ans.update({new_ch: 0})
-                ans[new_ch] += 1
-                let_amount += 1
-        if let_amount > 40000:
-            break
+    ans = Counter(_ch for _ch in _first_file_letters(file, key))
+    let_amount = sum(ans.values())
     for ch in ans:
         ans[ch] /= let_amount
     file.seek(0)
