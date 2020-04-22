@@ -2,18 +2,30 @@ import pickle
 import argparse
 import sys
 
+alphabets = [(ord('a'), ord('z')), (ord('а'), ord('я')), (ord(' '), ord('@')), (ord('['), ord('`')),
+             (ord('{'), ord('~'))]
+
+
+def upper_alpha(alpha):
+    return ord(chr(alpha[0]).upper()), ord(chr(alpha[1]).upper())
+
 
 def _get_alpha(_chr):
-    _chr = ord(_chr)
-    alphabets = [(ord('a'), ord('z')), (ord('A'), ord('Z'))]
-    for alph in alphabets:
-        if alph[0] <= _chr <= alph[1]:
-            return alph[0], alph[1]
+    _ord = ord(_chr.lower())
+    global alphabets
+    for alpha in alphabets:
+        if alpha[0] <= _ord <= alpha[1]:
+            return (alpha[0], alpha[1]) if _chr.islower() else upper_alpha(alpha)
     return None
 
 
-def _small_alpha():
-    return [(ord('a'), ord('z'))]
+def is_letter(_chr):
+    _ord = ord(_chr.lower())
+    global alphabets
+    for alpha in alphabets[0:2]:
+        if alpha[0] <= _ord <= alpha[1]:
+            return True
+    return False
 
 
 def _same_alphabets(alpha1, alpha2):
@@ -24,7 +36,7 @@ def _shift_ord(_chr, sh, _alpha=None):
     if _alpha is None:
         _alpha = _get_alpha(_chr)
     numb = ord(_chr)
-    if _alpha is not None:
+    if _alpha:
         numb = numb - _alpha[0]
         numb = _alpha[0] + (numb + sh) % (_alpha[1] + 1 - _alpha[0])
         return chr(numb)
@@ -45,11 +57,11 @@ def _vigenere(file, key, _cipher=1):
     for line in file:
         for ch in line:
             ch_alpha = _get_alpha(ch)
-            if ch_alpha is not None:
+            if ch_alpha:
                 _shift_chr = key[ch_num % len(key)]
                 ch_num += 1
                 _shift_alpha = _get_alpha(_shift_chr)
-                if _shift_alpha is not None and _same_alphabets(ch_alpha, _shift_alpha):
+                if _shift_alpha:
                     ans.append(_shift_ord(ch, _cipher * (ord(_shift_chr) - _shift_alpha[0]), ch_alpha))
                 else:
                     ans.append(ch)
@@ -80,12 +92,12 @@ def _frequencies(file):
     for line in file:
         for _chr in line.strip():
             _chr = _chr.lower()
-            if _get_alpha(_chr) is not None:
+            if is_letter(_chr):
                 if _chr not in _letters:
                     _letters.update({_chr: 0})
                 _letters[_chr] += 1
                 data_amount += 1
-        if data_amount > 20000:
+        if data_amount > 40000:
             break
     for ch in _letters:
         _letters[ch] /= data_amount
@@ -104,19 +116,12 @@ def _load_frequencies(_file='frequencies.txt'):
 
 def _freq_diff(freqs1, freqs2):
     diff = 0
-    _alphas = _small_alpha()
-    for _alpha in _alphas:
-        for i in range(_alpha[0], _alpha[1]):
+    for _alpha in alphabets[0:2]:
+        for i in range(_alpha[0], _alpha[1] + 1):
             _chr = chr(i)
-            if _chr not in freqs1 and _chr not in freqs2:
-                continue
-            if _chr not in freqs1:
-                diff += (freqs2[_chr] ** 2)
-                continue
-            if _chr not in freqs2:
-                diff += (freqs1[_chr] ** 2)
-                continue
-            diff += ((freqs1[_chr] - freqs2[_chr]) ** 2)
+            freq1 = freqs1[_chr] if _chr in freqs1 else 0
+            freq2 = freqs2[_chr] if _chr in freqs2 else 0
+            diff += ((freq1 - freq2) ** 2)
     return diff
 
 
@@ -126,22 +131,21 @@ def _caesar_count_freq(file, key):
     for line in file:
         for ch in line.strip():
             new_ch = _shift_ord(ch, key)
-            if _get_alpha(new_ch) is not None:
+            if _get_alpha(new_ch):
                 if new_ch not in ans:
                     ans.update({new_ch: 0})
                 ans[new_ch] += 1
                 let_amount += 1
+        if let_amount > 40000:
+            break
     for ch in ans:
         ans[ch] /= let_amount
     file.seek(0)
     return ans
 
 
-std_freq = _load_frequencies()
-
-
 def caesar_hack(file):
-    best_key = min((_freq_diff(_caesar_count_freq(file, -key), std_freq), key) for key in range(1, 28))[1]
+    best_key = min((_freq_diff(_caesar_count_freq(file, -key), std_freq), key) for key in range(0, 33))[1]
     return caesar_decode(file, best_key)
 
 
@@ -165,10 +169,8 @@ def _decode(args):
 
 def _get_ready(args):
     if args.output:
-        sys.stdout = open(args.output, 'w')
-    inp = sys.stdin
-    if args.input:
-        inp = open(args.input, 'r')
+        sys.stdout = open(args.output, 'w', encoding='utf-8')
+    inp = open(args.input, 'r', encoding='utf-8') if args.input else sys.stdin
     return inp
 
 
@@ -180,10 +182,7 @@ def _get_cipher_and_key(args):
     if key is None:
         key = "1" if cipher == "caesar" else "LEMON"
     if cipher == "caesar":
-        if not key.isdigit():
-            key = 1
-        else:
-            key = int(key)
+        key = int(key) if key.isdigit() else 1
     return cipher, key
 
 
@@ -226,6 +225,9 @@ def parse_args():
     parser_hack.add_argument('--freqs', type=str, help="file with serialized dictionary of frequencies")
     parser_hack.set_defaults(func=hack)
     return parser.parse_args()
+
+
+std_freq = _load_frequencies()
 
 
 def main():
