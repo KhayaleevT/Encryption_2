@@ -1,0 +1,236 @@
+import pickle
+import argparse
+import sys
+
+
+def _get_alpha(_chr):
+    _chr = ord(_chr)
+    alphabets = [(ord('a'), ord('z')), (ord('A'), ord('Z'))]
+    for alph in alphabets:
+        if alph[0] <= _chr <= alph[1]:
+            return alph[0], alph[1]
+    return None
+
+
+def _small_alpha():
+    return [(ord('a'), ord('z'))]
+
+
+def _same_alphabets(alpha1, alpha2):
+    return chr(alpha1[0]).lower() == chr(alpha2[0]).lower()
+
+
+def _shift_ord(_chr, sh, _alpha=None):
+    if _alpha is None:
+        _alpha = _get_alpha(_chr)
+    numb = ord(_chr)
+    if _alpha is not None:
+        numb = numb - _alpha[0]
+        numb = _alpha[0] + (numb + sh) % (_alpha[1] + 1 - _alpha[0])
+        return chr(numb)
+    return _chr
+
+
+def _caesar(file, key):
+    ans = []
+    for line in file:
+        for ch in line:
+            ans.append(_shift_ord(ch, key))
+    return ''.join(ans)
+
+
+def _vigenere(file, key, _cipher=1):
+    ans = []
+    ch_num = 0
+    for line in file:
+        for ch in line:
+            ch_alpha = _get_alpha(ch)
+            if ch_alpha is not None:
+                _shift_chr = key[ch_num % len(key)]
+                ch_num += 1
+                _shift_alpha = _get_alpha(_shift_chr)
+                if _shift_alpha is not None and _same_alphabets(ch_alpha, _shift_alpha):
+                    ans.append(_shift_ord(ch, _cipher * (ord(_shift_chr) - _shift_alpha[0]), ch_alpha))
+                else:
+                    ans.append(ch)
+            else:
+                ans.append(ch)
+    return ''.join(ans)
+
+
+def caesar_decode(file, key):
+    return _caesar(file, -key)
+
+
+def caesar_encode(file, key):
+    return _caesar(file, key)
+
+
+def vigenere_encode(file, key):
+    return _vigenere(file, key)
+
+
+def vigenere_decode(file, key):
+    return _vigenere(file, key, -1)
+
+
+def _frequencies(file):
+    _letters = dict()
+    data_amount = 0
+    for line in file:
+        for _chr in line.strip():
+            _chr = _chr.lower()
+            if _get_alpha(_chr) is not None:
+                if _chr not in _letters:
+                    _letters.update({_chr: 0})
+                _letters[_chr] += 1
+                data_amount += 1
+        if data_amount > 20000:
+            break
+    for ch in _letters:
+        _letters[ch] /= data_amount
+    return _letters
+
+
+def _dump_frequencies(freqs, _file='frequencies.txt'):
+    with open(_file, 'wb') as fr:
+        pickle.dump(freqs, fr)
+
+
+def _load_frequencies(_file='frequencies.txt'):
+    with open(_file, 'rb') as fr:
+        return pickle.load(fr)
+
+
+def _freq_diff(freqs1, freqs2):
+    diff = 0
+    _alphas = _small_alpha()
+    for _alpha in _alphas:
+        for i in range(_alpha[0], _alpha[1]):
+            _chr = chr(i)
+            if _chr not in freqs1 and _chr not in freqs2:
+                continue
+            if _chr not in freqs1:
+                diff += (freqs2[_chr] ** 2)
+                continue
+            if _chr not in freqs2:
+                diff += (freqs1[_chr] ** 2)
+                continue
+            diff += ((freqs1[_chr] - freqs2[_chr]) ** 2)
+    return diff
+
+
+def _caesar_count_freq(file, key):
+    ans = dict()
+    let_amount = 0
+    for line in file:
+        for ch in line.strip():
+            new_ch = _shift_ord(ch, key)
+            if _get_alpha(new_ch) is not None:
+                if new_ch not in ans:
+                    ans.update({new_ch: 0})
+                ans[new_ch] += 1
+                let_amount += 1
+    for ch in ans:
+        ans[ch] /= let_amount
+    file.seek(0)
+    return ans
+
+
+std_freq = _load_frequencies()
+
+
+def caesar_hack(file):
+    best_key = min((_freq_diff(_caesar_count_freq(file, -key), std_freq), key) for key in range(1, 28))[1]
+    return caesar_decode(file, best_key)
+
+
+def _encode(args):
+    _input = _get_ready(args)
+    cipher, key = _get_cipher_and_key(args)
+    if cipher == "caesar":
+        print(caesar_encode(_input, int(key)), end='')
+    else:
+        print(vigenere_encode(_input, key), end='')
+
+
+def _decode(args):
+    _input = _get_ready(args)
+    cipher, key = _get_cipher_and_key(args)
+    if cipher == "caesar":
+        print(caesar_decode(_input, key), end='')
+    else:
+        print(vigenere_decode(_input, key), end='')
+
+
+def _get_ready(args):
+    if args.output:
+        sys.stdout = open(args.output, 'w')
+    inp = sys.stdin
+    if args.input:
+        inp = open(args.input, 'r')
+    return inp
+
+
+def _get_cipher_and_key(args):
+    cipher = args.cipher
+    if cipher is None or cipher != "vigenere":
+        cipher = "caesar"
+    key = args.key
+    if key is None:
+        key = "1" if cipher == "caesar" else "LEMON"
+    if cipher == "caesar":
+        if not key.isdigit():
+            key = 1
+        else:
+            key = int(key)
+    return cipher, key
+
+
+def freq_count(args):
+    _input = _get_ready(args)
+    _output = args.output if args.output else 'frequencies.txt'
+    _dump_frequencies(_frequencies(_input), _output)
+
+
+def hack(args):
+    _input = _get_ready(args)
+    global std_freq
+    if args.freqs:
+        std_freq = _load_frequencies(args.freqs)
+    print(caesar_hack(_input), end='')
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Encryption utility')
+    subparsers = parser.add_subparsers()
+    parser_encode = subparsers.add_parser('encode')
+    parser_encode.add_argument('--input', type=str, help="text to encode")
+    parser_encode.add_argument('--output', type=str, help="where to put encoded text")
+    parser_encode.add_argument('--cipher', type=str, help="cipher used to encode text")
+    parser_encode.add_argument('--key', help="key to encode text with")
+    parser_encode.set_defaults(func=_encode)
+    parser_decode = subparsers.add_parser('decode')
+    parser_decode.add_argument('--input', type=str, help="text to decode")
+    parser_decode.add_argument('--output', type=str, help="where to put decoded text")
+    parser_decode.add_argument('--cipher', type=str, help="cipher used to encode text")
+    parser_decode.add_argument('--key', help="key used to encode text")
+    parser_decode.set_defaults(func=_decode)
+    parser_freq = subparsers.add_parser('freq_count')
+    parser_freq.add_argument('--input', type=str, help="text to count frequency of letters")
+    parser_freq.add_argument('--output', help="where to put list of frequencies")
+    parser_freq.set_defaults(func=freq_count)
+    parser_hack = subparsers.add_parser('hack_caesar')
+    parser_hack.add_argument('--input', type=str, help="file trying to hack")
+    parser_hack.add_argument('--output', type=str, help="where to put decoded text")
+    parser_hack.add_argument('--freqs', type=str, help="file with serialized dictionary of frequencies")
+    parser_hack.set_defaults(func=hack)
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    args.func(args)
+
+
+main()
