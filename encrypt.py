@@ -191,8 +191,7 @@ def freq_count(args):
 def hack(args):
     _input = _get_ready(args)
     global std_freq
-    if args.freqs:
-        std_freq = _load_frequencies(args.freqs)
+    std_freq = _load_frequencies(args.freqs) if args.freqs else _load_frequencies()
     print(caesar_hack(_input), end='')
 
 
@@ -223,7 +222,7 @@ def parse_args():
     return parser.parse_args()
 
 
-std_freq = _load_frequencies()
+std_freq = {}
 
 
 def main():
