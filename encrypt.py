@@ -4,7 +4,7 @@ import sys
 from collections import Counter
 
 alphabets = [(ord('a'), ord('z')), (ord('а'), ord('я')), (ord(' '), ord('@')), (ord('['), ord('`')),
-             (ord('{'), ord('~'))]
+             (ord('{'), ord(''))]
 
 
 def upper_alpha(alpha):
@@ -33,20 +33,20 @@ def _same_alphabets(alpha1, alpha2):
     return chr(alpha1[0]).lower() == chr(alpha2[0]).lower()
 
 
-def _shift_ord(_chr, sh, _alpha=None):
-    if sh == 0:
+def _shift_ord(_chr, shift, _alpha=None):
+    if shift == 0:
         return _chr
     if _alpha is None:
         _alpha = _get_alpha(_chr)
     numb = ord(_chr)
     if _alpha:
         numb = numb - _alpha[0]
-        numb = _alpha[0] + (numb + sh) % (_alpha[1] + 1 - _alpha[0])
+        numb = _alpha[0] + (numb + shift) % (_alpha[1] + 1 - _alpha[0])
         return chr(numb)
     return _chr
 
 
-def _caesar(file, key):
+def _caesar(file, key: int):
     ans = []
     for line in file:
         for ch in line:
@@ -54,7 +54,32 @@ def _caesar(file, key):
     return ''.join(ans)
 
 
+MIN_ORD = 32
+
+
+def _vernam_xor(ch, xor_ch):
+    """32 is ord of ' ' """
+    xor_1 = ord(ch) - MIN_ORD
+    xor_2 = ord(xor_ch) - MIN_ORD
+    return chr((xor_1 ^ xor_2) + MIN_ORD)
+
+
+def _vernam(file, key):
+    ans = []
+    ch_num = 0
+    for line in file:
+        for ch in line:
+            if ord(ch) < MIN_ORD:
+                ans.append(ch)
+                continue
+            _shift_chr = key[ch_num]
+            ch_num += 1
+            ans.append(_vernam_xor(ch, _shift_chr))
+    return ''.join(ans)
+
+
 def _vigenere(file, key, _cipher=1):
+    """_cipher parameter means the direction of what we are doing, 1 means cipher, -1 means decipher"""
     ans = []
     ch_num = 0
     for line in file:
@@ -73,29 +98,38 @@ def _vigenere(file, key, _cipher=1):
     return ''.join(ans)
 
 
-def caesar_decode(file, key):
+def vernam_encode(file, key: str):
+    return _vernam(file, key)
+
+
+def vernam_decode(file, key: str):
+    return _vernam(file, key)
+
+
+def caesar_decode(file, key: int):
     return _caesar(file, -key)
 
 
-def caesar_encode(file, key):
+def caesar_encode(file, key: int):
     return _caesar(file, key)
 
 
-def vigenere_encode(file, key):
+def vigenere_encode(file, key: str):
     return _vigenere(file, key)
 
 
-def vigenere_decode(file, key):
+def vigenere_decode(file, key: str):
     return _vigenere(file, key, -1)
 
 
-def _first_file_letters(file, _sh=0, _max_amount=40000):
+def _first_file_letters(file, shift=0, _max_amount=40000):
+    """40000 is just random big number,you can put 1000000 or 500000 here as well"""
     _processed = 0
     for line in file:
         for _ch in line:
-            sh_ch = _shift_ord(_ch, _sh)
-            if is_letter(sh_ch):
-                yield sh_ch
+            shift_ch = _shift_ord(_ch, shift)
+            if is_letter(shift_ch):
+                yield shift_ch
                 _processed += 1
         if _processed > _max_amount:
             break
@@ -131,7 +165,8 @@ def _freq_diff(freqs1, freqs2):
     return diff
 
 
-def _caesar_count_freq(file, key):
+def _caesar_count_freq(file, key: int):
+    """Counting frequencies of text encoded in caesar with the key"""
     ans = Counter(_ch for _ch in _first_file_letters(file, key))
     let_amount = sum(ans.values())
     for ch in ans:
@@ -140,39 +175,46 @@ def _caesar_count_freq(file, key):
     return ans
 
 
-def caesar_hack(file):
-    best_key = min((_freq_diff(_caesar_count_freq(file, -key), std_freq), key) for key in range(0, 33))[1]
+def caesar_hack(file, freqs):
+    best_key = min((_freq_diff(_caesar_count_freq(file, -key), freqs), key) for key in range(0, 33))[1]
     return caesar_decode(file, best_key)
 
 
 def _encode(args):
-    _input = _get_ready(args)
+    _input = _get_input_and_ready_output(args)
     cipher, key = _get_cipher_and_key(args)
     if cipher == "caesar":
         print(caesar_encode(_input, int(key)), end='')
-    else:
+    elif cipher == "vigenere":
         print(vigenere_encode(_input, key), end='')
+    else:
+        print(vernam_encode(_input, key), end='')
 
 
 def _decode(args):
-    _input = _get_ready(args)
+    _input = _get_input_and_ready_output(args)
     cipher, key = _get_cipher_and_key(args)
     if cipher == "caesar":
         print(caesar_decode(_input, key), end='')
-    else:
+    elif cipher == "vigenere":
         print(vigenere_decode(_input, key), end='')
+    else:
+        print(vernam_decode(_input, key), end='')
 
 
-def _get_ready(args):
+def _get_input_and_ready_output(args):
     if args.output:
         sys.stdout = open(args.output, 'w', encoding='utf-8')
-    inp = open(args.input, 'r', encoding='utf-8') if args.input else sys.stdin
-    return inp
+    _input = open(args.input, 'r', encoding='utf-8') if args.input else sys.stdin
+    return _input
+
+
+CIPHERS = {"vigenere", "caesar", "vernam"}
 
 
 def _get_cipher_and_key(args):
     cipher = args.cipher
-    if cipher is None or cipher != "vigenere":
+    if cipher is None or cipher not in CIPHERS:
         cipher = "caesar"
     key = args.key
     if key is None:
@@ -183,16 +225,15 @@ def _get_cipher_and_key(args):
 
 
 def freq_count(args):
-    _input = _get_ready(args)
+    _input = _get_input_and_ready_output(args)
     _output = args.output if args.output else 'frequencies.txt'
     _dump_frequencies(_frequencies(_input), _output)
 
 
 def hack(args):
-    _input = _get_ready(args)
-    global std_freq
-    std_freq = _load_frequencies(args.freqs) if args.freqs else _load_frequencies()
-    print(caesar_hack(_input), end='')
+    _input = _get_input_and_ready_output(args)
+    _freqs = _load_frequencies(args.freqs) if args.freqs else _load_frequencies()
+    print(caesar_hack(_input, _freqs), end='')
 
 
 def parse_args():
@@ -220,9 +261,6 @@ def parse_args():
     parser_hack.add_argument('--freqs', type=str, help="file with serialized dictionary of frequencies")
     parser_hack.set_defaults(func=hack)
     return parser.parse_args()
-
-
-std_freq = {}
 
 
 def main():
