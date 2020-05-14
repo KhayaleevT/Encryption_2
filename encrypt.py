@@ -105,6 +105,8 @@ MIN_ORD = 32
 
 def _vernam_xor(ch: chr, xor_ch: chr) -> chr:
     """
+    Args:
+        ch,xor_ch -chars to be xored
     Returns:
         xor of two chars ords for vernam encoding
     """
@@ -185,9 +187,15 @@ def vigenere_decode(file, key: str) -> str:
     return _vigenere(file, key, -1)
 
 
-def _first_file_letters(file, shift=0, _max_amount=40000):
-    """40000 is just random big number,you can put 1000000 or 500000 here as well
-       the function is generator giving first max_amount file letters"""
+def _first_file_letters(file, shift: int = 0, _max_amount: int = 40000):
+    """
+    Args:
+        file
+        shift(int)
+        _max_amount(int)
+    40000 is just random big number,you can put 1000000 or 500000 here as well
+    the function is generator giving first max_amount file letters shifted on shift
+    """
     _processed = 0
     for line in file:
         for _ch in line:
@@ -242,8 +250,13 @@ def _freq_diff(freqs1: Dict[chr, float], freqs2: Dict[chr, float]) -> float:
 
 def _caesar_count_freq(file, key: int) -> Dict[chr, float]:
     """
+    Counts character frequencies if file would be encoded with key, does not actually encode anything
+    Args:
+        file
+        key(int)
     Returns:
-         Dict[chr,float]:frequencies of text if encoded in caesar with the key"""
+         Dict[chr,float]:frequencies of text if encoded in caesar with the key
+    """
     ans = Counter(_ch for _ch in _first_file_letters(file, key))
     let_amount = sum(ans.values())
     for ch in ans:
