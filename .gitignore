@@ -1,6 +1,7 @@
 
 venv/Lib/site-packages/easy-install.pth
 *.pth
+venv
 venv/Lib/site-packages/pip-19.0.3-py3.7.egg/EGG-INFO/dependency_links.txt
 venv/Lib/site-packages/pip-19.0.3-py3.7.egg/EGG-INFO/entry_points.txt
 venv/Lib/site-packages/easy-install.pth
