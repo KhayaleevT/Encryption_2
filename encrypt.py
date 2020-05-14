@@ -2,16 +2,35 @@ import pickle
 import argparse
 import sys
 from collections import Counter
+from typing import Tuple, Dict, Union
 
+"""
+Encryption utility
+"""
 alphabets = [(ord('a'), ord('z')), (ord('а'), ord('я')), (ord(' '), ord('@')), (ord('['), ord('`')),
              (ord('{'), ord(''))]
+"""
+alphabets stored in pairs of first and last letter codes(Tuple[ord,ord])
+"""
 
 
-def upper_alpha(alpha):
+def upper_alpha(alpha: Tuple[int, int]) -> Tuple[int, int]:
+    """
+    Args:
+       alpha:Tuple[int,int] -alphabet
+    Returns:
+       Tuple[int,int]- upper version of alphabet
+    """
     return ord(chr(alpha[0]).upper()), ord(chr(alpha[1]).upper())
 
 
-def _get_alpha(_chr):
+def _get_alpha(_chr: chr) -> Union[Tuple[int, int], None]:
+    """
+    Args:
+       _chr: char
+    Returns:
+       Tuple[int,int] if chr has alphabet and None else
+    """
     _ord = ord(_chr.lower())
     global alphabets
     for alpha in alphabets:
@@ -20,7 +39,13 @@ def _get_alpha(_chr):
     return None
 
 
-def is_letter(_chr):
+def is_letter(_chr: chr) -> bool:
+    """
+    Args:
+       _chr:char
+    Returns:
+        bool: whether the _chr is a letter
+    """
     _ord = ord(_chr.lower())
     global alphabets
     for alpha in alphabets[0:2]:
@@ -29,11 +54,25 @@ def is_letter(_chr):
     return False
 
 
-def _same_alphabets(alpha1, alpha2):
+def _same_alphabets(alpha1: Tuple[int, int], alpha2: Tuple[int, int]) -> bool:
+    """
+    Args:
+       alpha1,alpha2-alphabets
+    Returns:
+       bool: whether the alpha1 and alpha2 represent same alphabets
+    """
     return chr(alpha1[0]).lower() == chr(alpha2[0]).lower()
 
 
-def _shift_ord(_chr, shift, _alpha=None):
+def _shift_ord(_chr: chr, shift: int, _alpha=None) -> chr:
+    """
+    Args:
+        _chr:char
+        shift:int
+        _alpha:alphabet of _chr if already known
+    Returns:
+        chr: char shifted on shift in its alphabet or the same chr if chr is not in alphabet
+    """
     if shift == 0:
         return _chr
     if _alpha is None:
@@ -46,7 +85,14 @@ def _shift_ord(_chr, shift, _alpha=None):
     return _chr
 
 
-def _caesar(file, key: int):
+def _caesar(file, key: int) -> str:
+    """
+    Args:
+         file: text to be encoded
+         key(int): key
+    Returns:
+          str: encoded text
+    """
     ans = []
     for line in file:
         for ch in line:
@@ -57,14 +103,24 @@ def _caesar(file, key: int):
 MIN_ORD = 32
 
 
-def _vernam_xor(ch, xor_ch):
-    """32 is ord of ' ' """
+def _vernam_xor(ch: chr, xor_ch: chr) -> chr:
+    """
+    Returns:
+        xor of two chars ords for vernam encoding
+    """
     xor_1 = ord(ch) - MIN_ORD
     xor_2 = ord(xor_ch) - MIN_ORD
     return chr((xor_1 ^ xor_2) + MIN_ORD)
 
 
-def _vernam(file, key):
+def _vernam(file, key: str) -> str:
+    """
+       Args:
+            file: text to be encoded
+            key(str): key, should be at least the size of encoding file
+       Returns:
+             str: encoded text
+    """
     ans = []
     ch_num = 0
     for line in file:
@@ -78,8 +134,15 @@ def _vernam(file, key):
     return ''.join(ans)
 
 
-def _vigenere(file, key, _cipher=1):
-    """_cipher parameter means the direction of what we are doing, 1 means cipher, -1 means decipher"""
+def _vigenere(file, key: str, _cipher: int = 1) -> str:
+    """
+       Args:
+            file: text to be encoded
+            key(str): key
+            _cipher: should be 1 or -1 , 1 means encoding, -1 means decoding
+       Returns:
+             str: encoded text
+    """
     ans = []
     ch_num = 0
     for line in file:
@@ -98,32 +161,33 @@ def _vigenere(file, key, _cipher=1):
     return ''.join(ans)
 
 
-def vernam_encode(file, key: str):
+def vernam_encode(file, key: str) -> str:
     return _vernam(file, key)
 
 
-def vernam_decode(file, key: str):
+def vernam_decode(file, key: str) -> str:
     return _vernam(file, key)
 
 
-def caesar_decode(file, key: int):
+def caesar_decode(file, key: int) -> str:
     return _caesar(file, -key)
 
 
-def caesar_encode(file, key: int):
+def caesar_encode(file, key: int) -> str:
     return _caesar(file, key)
 
 
-def vigenere_encode(file, key: str):
+def vigenere_encode(file, key: str) -> str:
     return _vigenere(file, key)
 
 
-def vigenere_decode(file, key: str):
+def vigenere_decode(file, key: str) -> str:
     return _vigenere(file, key, -1)
 
 
 def _first_file_letters(file, shift=0, _max_amount=40000):
-    """40000 is just random big number,you can put 1000000 or 500000 here as well"""
+    """40000 is just random big number,you can put 1000000 or 500000 here as well
+       the function is generator giving first max_amount file letters"""
     _processed = 0
     for line in file:
         for _ch in line:
@@ -135,7 +199,11 @@ def _first_file_letters(file, shift=0, _max_amount=40000):
             break
 
 
-def _frequencies(file):
+def _frequencies(file) -> Dict[chr, float]:
+    """
+    Returns:
+        Dict[chr,float]: dictionary of average chr frequencies in first 40000 file symbols
+    """
     _letters = dict()
     _letters = Counter(_ch for _ch in _first_file_letters(file))
     data_amount = sum(_letters.values())
@@ -154,7 +222,14 @@ def _load_frequencies(_file='frequencies.txt'):
         return pickle.load(fr)
 
 
-def _freq_diff(freqs1, freqs2):
+def _freq_diff(freqs1: Dict[chr, float], freqs2: Dict[chr, float]) -> float:
+    """
+    Args:
+        freqs1(Dict[chr,float]),
+        freqs2(Dict[chr,float]):dictionaries of character frequencies
+    Returns:
+        float: vector distance between freqs1 and freqs2
+    """
     diff = 0
     for _alpha in alphabets[0:2]:
         for i in range(_alpha[0], _alpha[1] + 1):
@@ -165,8 +240,10 @@ def _freq_diff(freqs1, freqs2):
     return diff
 
 
-def _caesar_count_freq(file, key: int):
-    """Counting frequencies of text encoded in caesar with the key"""
+def _caesar_count_freq(file, key: int) -> Dict[chr, float]:
+    """
+    Returns:
+         Dict[chr,float]:frequencies of text if encoded in caesar with the key"""
     ans = Counter(_ch for _ch in _first_file_letters(file, key))
     let_amount = sum(ans.values())
     for ch in ans:
@@ -175,34 +252,57 @@ def _caesar_count_freq(file, key: int):
     return ans
 
 
-def caesar_hack(file, freqs):
+def caesar_hack(file, freqs: Dict[chr, float]) -> str:
+    """
+    Try to choose the most realistic looking key due to the average character
+    frequencies and hack the caesar encoded text
+    Args:
+      file: text to try to decode
+      freqs(Dict[chr,float]): frequencies dictionary
+    Returns:
+        str:supposed version of decoded text
+    """
     best_key = min((_freq_diff(_caesar_count_freq(file, -key), freqs), key) for key in range(0, 33))[1]
     return caesar_decode(file, best_key)
 
 
 def _encode(args):
+    """
+    Encoding processing
+    :param args: args from terminal input
+    """
     _input = _get_input_and_ready_output(args)
     cipher, key = _get_cipher_and_key(args)
     if cipher == "caesar":
         print(caesar_encode(_input, int(key)), end='')
     elif cipher == "vigenere":
         print(vigenere_encode(_input, key), end='')
-    else:
+    elif cipher == "vernam":
         print(vernam_encode(_input, key), end='')
 
 
 def _decode(args):
+    """
+    Decoding processing
+    :param args: args from terminal input
+    """
     _input = _get_input_and_ready_output(args)
     cipher, key = _get_cipher_and_key(args)
     if cipher == "caesar":
         print(caesar_decode(_input, key), end='')
     elif cipher == "vigenere":
         print(vigenere_decode(_input, key), end='')
-    else:
+    elif cipher == "vernam":
         print(vernam_decode(_input, key), end='')
 
 
 def _get_input_and_ready_output(args):
+    """
+    Output and input processing
+    :param args: args from terminal input
+    Returns:
+    text input to process later
+    """
     if args.output:
         sys.stdout = open(args.output, 'w', encoding='utf-8')
     _input = open(args.input, 'r', encoding='utf-8') if args.input else sys.stdin
@@ -213,6 +313,12 @@ CIPHERS = {"vigenere", "caesar", "vernam"}
 
 
 def _get_cipher_and_key(args):
+    """
+    Getting cipher and key from args
+    :param args: args from terminal input
+    Returns:
+    tuple:pair of cipher and key
+    """
     cipher = args.cipher
     if cipher is None or cipher not in CIPHERS:
         cipher = "caesar"
@@ -225,12 +331,20 @@ def _get_cipher_and_key(args):
 
 
 def freq_count(args):
+    """
+    Frequencies count processing
+    :param args: args from terminal input
+    """
     _input = _get_input_and_ready_output(args)
     _output = args.output if args.output else 'frequencies.txt'
     _dump_frequencies(_frequencies(_input), _output)
 
 
 def hack(args):
+    """
+    Caesar encoded text hacking processing
+    :param args: args from terminal input
+    """
     _input = _get_input_and_ready_output(args)
     _freqs = _load_frequencies(args.freqs) if args.freqs else _load_frequencies()
     print(caesar_hack(_input, _freqs), end='')
