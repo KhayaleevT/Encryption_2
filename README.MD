@@ -1,4 +1,4 @@
-**Utility for encoding and decoding your text in vigenere or caesar
+**Utility for encoding and decoding your text in vigenere, vernam or caesar
 ciphers, also can hack caesar**  
 Encoding and decoding using examples:  
 `encrypt.py decode --input example_data/caesar_out.txt --output example_data/caesar_decode.txt --cipher caesar --key 3
